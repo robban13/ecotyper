@@ -35,6 +35,13 @@ scale_column = config$Input$"Annotation file column to scale by"
 additional_columns = config$Input$"Annotation file column(s) to plot"
 fractions = config$Input$"Cell type fractions"
 
+if(is.null(additional_columns))
+{
+        additional_columns = character(0)
+}
+additional_columns = as.character(additional_columns)
+additional_columns = additional_columns[!is.na(additional_columns) & additional_columns != ""]
+
 final_output = config$"Output"$"Output folder"
 
 n_threads = config$"Pipeline settings"$"Number of threads"
@@ -46,13 +53,54 @@ CSx_singularity_path_fractions = config$"Pipeline settings"$"CIBERSORTx fraction
 CSx_singularity_path_hires = config$"Pipeline settings"$"CIBERSORTx hires Singularity path"
 min_states = config$"Pipeline settings"$"Minimum number of states in ecotypes"
 
+if(is.null(CSx_singularity_path_fractions) || length(CSx_singularity_path_fractions) == 0 || (is.character(CSx_singularity_path_fractions) && CSx_singularity_path_fractions == ""))
+{
+        CSx_singularity_path_fractions = "NULL"
+}
+
+if(is.null(CSx_singularity_path_hires) || length(CSx_singularity_path_hires) == 0 || (is.character(CSx_singularity_path_hires) && CSx_singularity_path_hires == ""))
+{
+        CSx_singularity_path_hires = "NULL"
+}
+
 suppressWarnings({
-	final_output = abspath(final_output)	
-	if(!fractions %in% c("Carcinoma_Fractions", "Lymphoma_Fractions"))
-	{
-		fractions_path = abspath(fractions)
-	}
+        final_output = abspath(final_output)
+        if(!fractions %in% c("Carcinoma_Fractions", "Lymphoma_Fractions"))
+        {
+                fractions_path = abspath(fractions)
+        }
 })
+
+quote_args <- function(...)
+{
+        args = list(...)
+        args = unlist(args, recursive = F, use.names = F)
+
+        if(length(args) == 0)
+        {
+                return(character(0))
+        }
+
+        formatted = c()
+        for(arg in args)
+        {
+                if(is.null(arg) || length(arg) == 0)
+                {
+                        next
+                }
+
+                values = as.character(arg)
+                values[is.na(values)] = "NULL"
+                formatted = c(formatted, shQuote(values))
+        }
+
+        formatted
+}
+
+build_rscript_command <- function(script, ...)
+{
+        paste(c(shQuote("Rscript"), shQuote(script), quote_args(...)), collapse = " ")
+}
 
 #Starting EcoTyper
 setwd("pipeline")
@@ -71,27 +119,27 @@ if(!1 %in% skip_steps)
 		
 		if(discovery_type == "RNA-seq")
 		{
-			PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "TR4", "no_batch", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))	
-			RunJobQueue()
-			PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "LM22", "B_mode", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))
-			RunJobQueue() 
-			PushToJobQueue(paste("Rscript csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "no_batch", "LM22", "B_mode", fractions))		
+                        PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "TR4", "no_batch", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                        RunJobQueue()
+                        PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "LM22", "B_mode", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                        RunJobQueue()
+                        PushToJobQueue(build_rscript_command("csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "no_batch", "LM22", "B_mode", fractions))
 			RunJobQueue()
 		}else{
 			if(discovery_type == "Affymetrix")
 			{
-				PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "TR4", "B_mode", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))
-				RunJobQueue()
-				PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "LM22", "no_batch", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))
-				RunJobQueue()
-				PushToJobQueue(paste("Rscript csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "B_mode", "LM22", "no_batch", fractions))
+                                PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "TR4", "B_mode", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                                RunJobQueue()
+                                PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "LM22", "no_batch", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                                RunJobQueue()
+                                PushToJobQueue(build_rscript_command("csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "B_mode", "LM22", "no_batch", fractions))
 				RunJobQueue()
 			}else{
-				PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "LM22", "B_mode", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))
-				RunJobQueue()
-				PushToJobQueue(paste("Rscript csx_fractions.R", "discovery", discovery, "TR4", "B_mode", CSx_username, CSx_token, paste0("'", CSx_singularity_path_fractions, "'")))			
-				RunJobQueue()
-				PushToJobQueue(paste("Rscript csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "B_mode", "LM22", "B_mode", fractions))
+                                PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "LM22", "B_mode", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                                RunJobQueue()
+                                PushToJobQueue(build_rscript_command("csx_fractions.R", "discovery", discovery, "TR4", "B_mode", CSx_username, CSx_token, CSx_singularity_path_fractions))
+                                RunJobQueue()
+                                PushToJobQueue(build_rscript_command("csx_fractions_two_tiered.R", "discovery", discovery, "TR4", "B_mode", "LM22", "B_mode", fractions))
 				RunJobQueue()
 			}
 		}
@@ -110,12 +158,12 @@ if(!1 %in% skip_steps)
 if(!2 %in% skip_steps)
 {
 	cat("\nStep 2 (cell type expression purification): Running CIBERSORTxHiRes...\n")
-	PushToJobQueue(paste("Rscript csx_hires_scheduler.R", "discovery", discovery, fractions, CSx_username, CSx_token, n_threads, paste0("'", CSx_singularity_path_hires, "'")))
-	RunJobQueue()
+        PushToJobQueue(build_rscript_command("csx_hires_scheduler.R", "discovery", discovery, fractions, CSx_username, CSx_token, n_threads, CSx_singularity_path_hires))
+        RunJobQueue()
 
-	cat("Step 2 (cell type expression purification): Aggregating CIBERSORTxHiRes results...\n")
-	PushToJobQueue(paste("Rscript csx_hires_aggregate_worker_results.R", "discovery", discovery, fractions))
-	RunJobQueue()
+        cat("Step 2 (cell type expression purification): Aggregating CIBERSORTxHiRes results...\n")
+        PushToJobQueue(build_rscript_command("csx_hires_aggregate_worker_results.R", "discovery", discovery, fractions))
+        RunJobQueue()
 	
 	cat("Step 2 (cell type expression purification) finished successfully!\n")
 }else{
@@ -128,11 +176,16 @@ if(!3 %in% skip_steps)
 
 	classes_path = file.path(file.path("../CIBERSORTx/hires", discovery, fractions, "classes.txt"))
 	classes = read.delim(classes_path)
-	for(cell_type in colnames(classes))
-	{
-		PushToJobQueue(paste("Rscript state_discovery_extract_features.R", discovery, fractions, cell_type, scale_column))
-	}
-	RunJobQueue() 
+        for(cell_type in colnames(classes))
+        {
+                scaling_argument = scale_column
+                if(is.null(scaling_argument) || (length(scaling_argument) == 1 && (is.na(scaling_argument) || (is.character(scaling_argument) && scaling_argument == ""))))
+                {
+                        scaling_argument = "NULL"
+                }
+                PushToJobQueue(build_rscript_command("state_discovery_extract_features.R", discovery, fractions, cell_type, scaling_argument))
+        }
+        RunJobQueue()
 	
 	cat("Step 3 (cell state discovery): Running NMF (Warning: This step might take a long time!)...\n")
 	classes_path = file.path(file.path("../CIBERSORTx/hires", discovery, fractions, "classes.txt"))
@@ -147,10 +200,10 @@ if(!3 %in% skip_steps)
 		{
 			for(restart in 1:nmf_restarts)
 			{
-				if(!file.exists(file.path("../EcoTyper", discovery, fractions, "Cell_States", "discovery", cell_type, n_clusters, "restarts", restart, "estim.RData")))
-				{
-					PushToJobQueue(paste("Rscript state_discovery_NMF.R", "discovery", discovery, fractions, cell_type, n_clusters, restart))
-				}else{					
+                                if(!file.exists(file.path("../EcoTyper", discovery, fractions, "Cell_States", "discovery", cell_type, n_clusters, "restarts", restart, "estim.RData")))
+                                {
+                                        PushToJobQueue(build_rscript_command("state_discovery_NMF.R", "discovery", discovery, fractions, cell_type, n_clusters, restart))
+                                }else{
 					cat(paste0("Warning: Skipping NMF on '", cell_type, "' (number of states = ", n_clusters, ", restart ", restart, "), as the output file '", file.path("../EcoTyper", discovery, fractions, "Cell_States", "discovery", cell_type, n_clusters, "restarts", restart, "estim.RData"), "' already exists!\n"))
 				}
 			} 
@@ -167,7 +220,7 @@ if(!3 %in% skip_steps)
 		{			
 			next
 		}				
-		PushToJobQueue(paste("Rscript state_discovery_combine_NMF_restarts.R", "discovery", discovery, fractions, cell_type, max_clusters, nmf_restarts))
+                PushToJobQueue(build_rscript_command("state_discovery_combine_NMF_restarts.R", "discovery", discovery, fractions, cell_type, max_clusters, nmf_restarts))
 	} 
 	RunJobQueue()
 	cat("Step 3 (cell state discovery) finished successfully!\n")
@@ -178,7 +231,7 @@ if(!3 %in% skip_steps)
 if(!4 %in% skip_steps)
 {
 	cat("\nStep 4 (choosing the number of cell states)...\n")
-	PushToJobQueue(paste("Rscript state_discovery_rank_selection.R", "discovery", discovery, fractions, max_clusters, cohpenetic_cutoff))
+        PushToJobQueue(build_rscript_command("state_discovery_rank_selection.R", "discovery", discovery, fractions, max_clusters, cohpenetic_cutoff))
 	RunJobQueue()
 	cat("Step 4 (choosing the number of cell states) finished successfully!\n")
 }else{
@@ -196,7 +249,7 @@ if(!5 %in% skip_steps)
 	{	
 		cat(paste("Extracting cell states information for:", cell_type, "\n"))
 		n_clusters = key[key[,1] == cell_type, 2]
-		PushToJobQueue(paste("Rscript state_discovery_initial_plots.R", "discovery", discovery, fractions, cell_type, n_clusters, "State", paste(additional_columns, collapse = " "))) 		 
+                PushToJobQueue(build_rscript_command("state_discovery_initial_plots.R", "discovery", discovery, fractions, cell_type, n_clusters, "State", additional_columns))
 	}	
 	RunJobQueue()
 	cat("Step 5 (extracting cell state information) finished successfully!\n")
@@ -213,7 +266,7 @@ if(!6 %in% skip_steps)
 	{	
 		cat(paste("Filtering low-quality cell states for:", cell_type, "\n"))
 		n_clusters = key[key[,1] == cell_type, 2]
-		PushToJobQueue(paste("Rscript state_discovery_first_filter.R", discovery, fractions, cell_type, n_clusters, "State", paste(additional_columns, collapse = " "))) 		 
+                PushToJobQueue(build_rscript_command("state_discovery_first_filter.R", discovery, fractions, cell_type, n_clusters, "State", additional_columns))
 	}	
 	RunJobQueue()
 	cat("Step 6 (cell state QC filter) finished successfully!\n")
@@ -225,14 +278,14 @@ if(!7 %in% skip_steps)
 {
 	cat("\nStep 7 (advanced cell state QC filter). Warning: This filter is not recommended, unless your discovery dataset is composed of samples that can be confounded by serious biological or technical differences (e.g. it contains multiple tumor types).\n")
 
-	PushToJobQueue(paste("Rscript state_discovery_calculate_dropout_score.R", discovery, fractions))
+        PushToJobQueue(build_rscript_command("state_discovery_calculate_dropout_score.R", discovery, fractions))
 	RunJobQueue()
 	key = read.delim(file.path("../EcoTyper", discovery, fractions, "Analysis", "rank_selection", "rank_data.txt"))
 	for(cell_type in key[,1])
 	{	
 		cat(paste("Filtering low-quality cell states for:", cell_type, "\n"))
 		n_clusters = key[key[,1] == cell_type, 2]
-		PushToJobQueue(paste("Rscript state_discovery_second_filter.R", discovery, fractions, cell_type, n_clusters, "State", paste(additional_columns, collapse = " "))) 		 
+                PushToJobQueue(build_rscript_command("state_discovery_second_filter.R", discovery, fractions, cell_type, n_clusters, "State", additional_columns))
 	}	
 	RunJobQueue()
 	cat("Step 7 (advanced cell state QC filter) finished successfully!\n")
@@ -243,9 +296,9 @@ if(!7 %in% skip_steps)
 if(!8 %in% skip_steps)
 {
 	cat("\nStep 8 (ecotype discovery)...\n")
-	PushToJobQueue(paste("Rscript ecotypes.R", discovery, fractions, min_states)) 
-	RunJobQueue()
-	PushToJobQueue(paste("Rscript ecotypes_assign_samples.R", discovery, fractions, "Ecotype", paste(additional_columns, collapse = " "))) 
+        PushToJobQueue(build_rscript_command("ecotypes.R", discovery, fractions, min_states))
+        RunJobQueue()
+        PushToJobQueue(build_rscript_command("ecotypes_assign_samples.R", discovery, fractions, "Ecotype", additional_columns))
 	cat("Step 8 (ecotype discovery) finished successfully!\n")
 	RunJobQueue()
 }else{
