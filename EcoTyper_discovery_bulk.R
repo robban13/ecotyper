@@ -71,94 +71,27 @@ suppressWarnings({
         }
 })
 
-flatten_args <- function(x)
-{
-        flattened = list()
-
-        for(item in x)
-        {
-                if(is.null(item) || length(item) == 0)
-                {
-                        next
-                }
-
-                if(is.list(item) && !is.data.frame(item))
-                {
-                        flattened = c(flattened, flatten_args(item))
-                        next
-                }
-
-                if(length(item) > 1)
-                {
-                        for(i in seq_along(item))
-                        {
-                                flattened = c(flattened, list(item[[i]]))
-                        }
-                }else{
-                        flattened = c(flattened, list(item))
-                }
-        }
-
-        flattened
-}
-
 quote_args <- function(...)
 {
-        raw_args = flatten_args(list(...))
+        args = list(...)
+        args = unlist(args, recursive = F, use.names = F)
 
-        if(length(raw_args) == 0)
+        if(length(args) == 0)
         {
                 return(character(0))
         }
 
         formatted = c()
-        for(value in raw_args)
+        for(arg in args)
         {
-                if(is.null(value) || length(value) == 0)
+                if(is.null(arg) || length(arg) == 0)
                 {
                         next
                 }
 
-                if(is.logical(value))
-                {
-                        if(is.na(value))
-                        {
-                                formatted = c(formatted, "NULL")
-                        }else{
-                                formatted = c(formatted, ifelse(value, "TRUE", "FALSE"))
-                        }
-                        next
-                }
-
-                if(is.numeric(value))
-                {
-                        if(is.na(value))
-                        {
-                                formatted = c(formatted, "NULL")
-                        }else{
-                                formatted = c(formatted, trimws(format(value, scientific = F, trim = T)))
-                        }
-                        next
-                }
-
-                if(is.factor(value))
-                {
-                        value = as.character(value)
-                }
-
-                value_str = as.character(value)
-                if(length(value_str) == 0 || is.na(value_str) || value_str == "")
-                {
-                        formatted = c(formatted, "NULL")
-                        next
-                }
-
-                if(value_str == "NULL")
-                {
-                        formatted = c(formatted, "NULL")
-                }else{
-                        formatted = c(formatted, shQuote(value_str))
-                }
+                values = as.character(arg)
+                values[is.na(values)] = "NULL"
+                formatted = c(formatted, shQuote(values))
         }
 
         formatted
